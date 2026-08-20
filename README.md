@@ -77,4 +77,3 @@ Technologies Used
 
 
 
-![CI](https://github.com/<ORG>/<REPO>/actions/workflows/ci.yml/badge.svg)
