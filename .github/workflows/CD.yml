@@ -53,4 +53,3 @@ jobs:
       #  curl -X POST -H 'Content-type: application/json' \
       #    --data '{"text":"Échec du déploiement FastAPI"}' \
       #     ${{ secrets.SLACK_WEBHOOK_URL }}
-git 
