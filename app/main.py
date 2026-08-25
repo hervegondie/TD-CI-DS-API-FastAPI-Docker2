@@ -19,3 +19,4 @@ def read_root():
 @app.get("/favicon.ico")
 def favicon():
     return ""
+
