@@ -32,7 +32,7 @@ jobs:
         run: |
           pip install flake8
           flake8 app/test_api.py --count --select=E9,F63,F82 --show-source --statistics
-          flake8 app/test_api.py --count --exit-zero --max-complexity=10 --max-length=88 --statistics
+          flake8 app/test_api.py --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
       # Tests unitaires / async
       - name: Run tests
         run: |
