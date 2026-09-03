@@ -37,7 +37,7 @@ jobs:
       - name: Run tests
         run: |
           export PYTHONPATH=$(pwd)
-          pytest --maxfail=1 --disable-warnings -q --cov=app-report=xml --cov-report=ter-missing
+          pytest --maxfail=1 --disable-warnings -q --cov=app-report=xml --cov-report=term-missing
       
     
       #Vérifier la sécurité des dépendances(optionnel)
