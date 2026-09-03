@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
+
+  lint:
     runs-on: ubuntu-24.04
     steps:
       # Récupérer le code
@@ -21,27 +22,110 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      # Installer les dépendances dev
-      - name: Install dependencies (dev)
+
+      - name: Install linter
+        run: pip install flake8 ruff
+
+      - name: Run lint
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip list
-        #Linting - qualité du code
-      - name: Lint with flake8
-        run: |
-          pip install flake8
+          echo "=== Lint avec flake8 ==="
           flake8 app/test_api.py --count --select=E9,F63,F82 --show-source --statistics
           flake8 app/test_api.py --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
-      # Tests unitaires / async
-      - name: Run tests
+          echo "=== Lint avec ruff ==="
+          ruff check
+
+
+  type-check:
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install mypy
+        run: pip install mypy
+      - name: Run type checking
+        run: |
+          if [ -f mypy.ini ] || [ -f pyproject.toml ]; then
+            mypy app/test_api.py
+          else
+            echo "mypy config absent, étape ignorée"
+          fi
+
+  tests:
+    runs-on: ubuntu-24.04
+    needs: [lint, type-check]
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests + coverage
         run: |
           export PYTHONPATH=$(pwd)
-          pytest --maxfail=1 --disable-warnings -q --cov=app-report=xml --cov-report=term-missing
-      
-    
-      #Vérifier la sécurité des dépendances(optionnel)
-      - name: Check for issues
-        run: |
-          safety check || true
+          pytest --maxfail=1 --disable-warnings -q --cov=app --cov-report=xml --cov-report=term-missing
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+        
+  security:
+    runs-on: ubuntu-24.04
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install safety
+        run: pip install safety==1.10.3
+
+      - name: Check security
+        run: safety check || true
+
+
+  docker-smoke:
+      runs-on: ubuntu-24.04
+      needs: tests
+      if: github.event_name == 'push' # Optionnel : seulement sur push pour éviter lenteur PR
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Build Docker image
+          uses: docker/build-push-action@v6
+          with:
+            context: .
+            push: false
+            tags: app:ci
+            load: true
+
+        - name: Smoke test HTTP
+          run: |
+            docker run -d -p 8000:8000 --name app app:ci || docker run -d -p 8000:80 --name app app:ci
+            sleep 5
+            curl -fsS -X POST http://localhost:8000/predict \
+              -H "Content-Type: application/json" \
+              -d '{"features":[0.0,0.0,0.0]}' >/dev/null
+
+        - name: Cleanup
+          if: always()
+          run: docker rm -f app || true
