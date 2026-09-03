@@ -28,6 +28,8 @@ jobs:
 
       - name: Run lint
         run: |
+          echo "=== Lint avec ruff (Auto-fix) ==="
+          ruff check --fix
           echo "=== Lint avec flake8 ==="
           flake8 app/test_api.py --count --select=E9,F63,F82 --show-source --statistics
           flake8 app/test_api.py --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
